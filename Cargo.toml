@@ -1,0 +1,23 @@
+[package]
+name = "sonos-controller"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# General
+futures = "0.3.30"
+thiserror = "1.0.56"
+tokio = { version = "1.35.1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+
+# For UPnP support
+rupnp = "2.0.0"
+serde-xml-rs = "0.6.0"
+
+# For WebSockets support
+tokio-stream = "0.1"
+warp = "0.3"
+serde_json = "1.0"
+uuid = { version = "1", features = ["serde", "v4"] }

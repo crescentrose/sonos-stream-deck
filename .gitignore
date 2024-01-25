@@ -1,0 +1,5 @@
+/target
+
+# Stream Deck files
+*.sdPlugin/bin
+*.sdPlugin/logs/*  

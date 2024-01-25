@@ -1,0 +1,42 @@
+{
+	"Name": "Controller for Sonos",
+	"Version": "0.1.0",
+	"Author": "viora",
+	"Actions": [
+		{
+			"Name": "Counter",
+			"UUID": "sh.viora.controller-for-sonos.play-pause",
+			"Icon": "imgs/actions/counter/icon",
+			"Tooltip": "Toggles playback",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/counter/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		}
+	],
+	"Category": "Controller for Sonos",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "../target/debug/sonos-controller",
+	"Description": "Control your Sonos setup from the Stream Deck",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.4"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "10.15"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"UUID": "sh.viora.controller-for-sonos"
+}
