@@ -1,6 +1,6 @@
 use crate::{
     error::ControllerError,
-    services::{AVTransport, RenderingControl, Volume},
+    services::{AVTransport, AVTransportState, RenderingControl, Volume},
 };
 use futures::{pin_mut, prelude::*};
 use rupnp::{
@@ -73,6 +73,19 @@ impl Zone {
 
     pub async fn previous(&self) -> Result<(), ControllerError> {
         self.av_transport.previous(&self.primary_device).await
+    }
+
+    pub async fn play_pause(&self) -> Result<(), ControllerError> {
+        match self.get_state().await? {
+            AVTransportState::Paused | AVTransportState::Stopped => self.play().await,
+            AVTransportState::Playing | AVTransportState::Transitioning => self.pause().await,
+        }
+    }
+
+    pub async fn get_state(&self) -> Result<AVTransportState, ControllerError> {
+        self.av_transport
+            .get_transport_info(&self.primary_device)
+            .await
     }
 
     pub async fn get_volume(&self) -> Result<Volume, ControllerError> {

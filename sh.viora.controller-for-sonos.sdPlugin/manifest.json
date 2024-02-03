@@ -21,22 +21,21 @@
 	],
 	"Category": "Controller for Sonos",
 	"CategoryIcon": "imgs/plugin/category-icon",
-	"CodePath": "../target/debug/sonos-controller",
+	"CodePath": "bin/sonos-controller",
 	"Description": "Control your Sonos setup from the Stream Deck",
 	"Icon": "imgs/plugin/marketplace",
 	"SDKVersion": 2,
 	"Software": {
-		"MinimumVersion": "6.4"
+		"MinimumVersion": "4.4.1"
 	},
 	"OS": [
 		{
 			"Platform": "mac",
-			"MinimumVersion": "10.15"
+			"MinimumVersion": "12"
 		},
 		{
 			"Platform": "windows",
 			"MinimumVersion": "10"
 		}
-	],
-	"UUID": "sh.viora.controller-for-sonos"
+	]
 }

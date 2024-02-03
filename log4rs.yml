@@ -1,0 +1,14 @@
+refresh_rate: 2 seconds
+appenders:
+  stdout:
+    kind: console
+  logfile:
+    kind: file
+    path: "logs/sonos-controller.log"
+    encoder:
+      pattern: "{d} - {m}{n}"
+root:
+  level: debug
+  appenders:
+    - stdout
+    - logfile

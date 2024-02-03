@@ -8,4 +8,6 @@ pub enum ControllerError {
     TransportError(#[from] rupnp::Error),
     #[error("volume should be an integer between 0 and 100")]
     VolumeError,
+    #[error("response malformed")]
+    MalformedResponse,
 }

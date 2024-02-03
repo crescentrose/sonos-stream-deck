@@ -8,6 +8,13 @@ pub struct AVTransport {
     service: Service,
 }
 
+pub enum AVTransportState {
+    Stopped,
+    Playing,
+    Paused,
+    Transitioning,
+}
+
 impl AVTransport {
     const SERVICE_URN: URN = URN::service("schemas-upnp-org", "AVTransport", 1);
 
@@ -49,6 +56,29 @@ impl AVTransport {
         let payload = "<InstanceID>0</InstanceID>";
         self.service.action(device.url(), "Next", payload).await?;
         Ok(())
+    }
+
+    pub async fn get_transport_info(
+        &self,
+        device: &Device,
+    ) -> Result<AVTransportState, ControllerError> {
+        let payload = "<InstanceID>0</InstanceID>";
+        let resp = self
+            .service
+            .action(device.url(), "GetTransportInfo", payload)
+            .await?;
+        match resp
+            .get("CurrentTransportState")
+            .ok_or(ControllerError::MalformedResponse)?
+            .to_uppercase()
+            .as_ref()
+        {
+            "STOPPED" => Ok(AVTransportState::Stopped),
+            "PLAYING" => Ok(AVTransportState::Playing),
+            "PAUSED_PLAYBACK" => Ok(AVTransportState::Paused),
+            "TRANSITIONING" => Ok(AVTransportState::Transitioning),
+            _ => Err(ControllerError::MalformedResponse),
+        }
     }
 }
 
