@@ -1,5 +1,7 @@
 /target
 
 # Stream Deck files
-*.sdPlugin/bin
+*.sdPlugin/bin/*
+!*.sdPlugin/bin/.keep
 *.sdPlugin/logs/*  
+!*.sdPlugin/logs/.keep
