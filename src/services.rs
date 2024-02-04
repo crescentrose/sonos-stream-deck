@@ -1,7 +1,6 @@
-use std::fmt::Display;
-
 use crate::error::ControllerError;
 use rupnp::{ssdp::URN, Device, Service};
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub struct AVTransport {

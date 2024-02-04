@@ -4,7 +4,7 @@
 	"Author": "viora",
 	"Actions": [
 		{
-			"Name": "Counter",
+			"Name": "Play / Pause",
 			"UUID": "sh.viora.controller-for-sonos.play-pause",
 			"Icon": "imgs/actions/counter/icon",
 			"Tooltip": "Toggles playback",
@@ -32,10 +32,6 @@
 		{
 			"Platform": "mac",
 			"MinimumVersion": "12"
-		},
-		{
-			"Platform": "windows",
-			"MinimumVersion": "10"
 		}
 	]
 }
