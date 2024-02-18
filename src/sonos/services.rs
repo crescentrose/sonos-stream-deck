@@ -1,4 +1,4 @@
-use crate::error::ControllerError;
+use super::error::ControllerError;
 use rupnp::{ssdp::URN, Device, Service};
 use std::fmt::Display;
 

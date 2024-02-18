@@ -1,13 +1,17 @@
-use crate::{
-    error::ControllerError,
-    services::{AVTransport, AVTransportState, RenderingControl, Volume},
-};
 use futures::{pin_mut, prelude::*};
 use rupnp::{
     ssdp::{SearchTarget, URN},
     Device,
 };
 use std::time::Duration;
+
+use self::{
+    error::ControllerError,
+    services::{AVTransport, AVTransportState, RenderingControl, Volume},
+};
+
+mod error;
+mod services;
 
 const ZONE_GROUP_TOPOLOGY: URN = URN::service("schemas-upnp-org", "ZoneGroupTopology", 1);
 
