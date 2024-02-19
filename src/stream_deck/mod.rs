@@ -2,44 +2,96 @@ pub mod error;
 pub mod handler;
 pub mod plumbing;
 
-use serde_json::{json, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
 
 use self::error::StreamDeckError;
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "event", rename_all = "camelCase")]
 pub enum SendEvent {
+    #[serde(alias = "registerPlugin")]
     Register { uuid: String },
-    Log { message: String },
+    #[serde(alias = "logMessage")]
+    Log {
+        #[serde(with = "payload")]
+        message: String,
+    },
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum ReceiveEvent {
-    KeyDown { action: Action, context: String },
-    KeyUp { action: Action, context: String },
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "event", rename_all = "camelCase")]
+pub enum ReceiveEvent<Action> {
+    DidReceiveSettings {
+        action: Action,
+        context: String,
+        device: String,
+        payload: Value,
+    },
+    DidReceiveGlobalSettings {
+        payload: Value,
+    },
+    DidReceiveDeepLink {
+        payload: Value,
+    },
+    KeyDown {
+        action: Action,
+        context: String,
+        payload: Value,
+    },
+    KeyUp {
+        action: Action,
+        context: String,
+        payload: Value,
+    },
+    WillAppear {
+        action: Action,
+        context: String,
+        device: String,
+        payload: Value,
+    },
+    WillDisappear {
+        action: Action,
+        context: String,
+        device: String,
+        payload: Value,
+    },
+    DeviceDidConnect {
+        device: String,
+    },
+    DeviceDidDisconnect {
+        device: String,
+    },
+    ApplicationDidLaunch {
+        payload: Value,
+    },
+    ApplicationDidTerminate {
+        payload: Value,
+    },
+    PropertyInspectorDidAppear,
+    PropertyInspectorDidDisappear,
+    SystemDidWakeUp,
+    SendToPlugin {
+        action: Action,
+        context: String,
+        payload: Value,
+    },
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Action {
-    PlayPause,
-}
+impl TryFrom<SendEvent> for Message {
+    type Error = StreamDeckError;
 
-impl From<SendEvent> for Message {
-    fn from(value: SendEvent) -> Self {
-        let msg = match value {
-            SendEvent::Register { ref uuid } => json!({"event": "registerPlugin", "uuid": uuid}),
-            SendEvent::Log { ref message } => {
-                json!({"event": "logMessage", "payload": {"message": message}})
-            }
-        }
-        .to_string();
+    fn try_from(value: SendEvent) -> Result<Self, Self::Error> {
+        let msg = serde_json::to_string(&value).unwrap();
 
         if value.is_binary() {
-            Message::Binary(msg.into_bytes())
+            Ok(Message::Binary(msg.into_bytes()))
         } else {
-            Message::Text(msg)
+            Ok(Message::Text(msg))
         }
     }
 }
@@ -50,48 +102,22 @@ impl SendEvent {
     }
 }
 
-impl ReceiveEvent {
-    pub fn from_message(event: &str) -> Result<ReceiveEvent, StreamDeckError> {
-        use ReceiveEvent::*;
-        use StreamDeckError::*;
+mod payload {
+    use serde::{ser::SerializeStruct, Deserializer, Serializer};
 
-        let event: Value = serde_json::from_str(event)?;
-        let event_type = event.try_get("event")?;
-
-        match event_type {
-            "keyDown" => Ok(KeyDown {
-                action: Action::try_from(event.try_get("action")?)?,
-                context: event.try_get("context")?.to_string(),
-            }),
-            "keyUp" => Ok(KeyUp {
-                action: Action::try_from(event.try_get("action")?)?,
-                context: event.try_get("context")?.to_string(),
-            }),
-            _ => Err(UnrecognizedEvent),
-        }
+    pub(crate) fn deserialize<'de, D>(de: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
     }
-}
 
-trait TryGet {
-    fn try_get(&self, key: &str) -> Result<&str, StreamDeckError>;
-}
-
-impl TryGet for Value {
-    fn try_get(&self, key: &str) -> Result<&str, StreamDeckError> {
-        self.get(key)
-            .ok_or(StreamDeckError::MissingData)?
-            .as_str()
-            .ok_or(StreamDeckError::MissingData)
-    }
-}
-
-impl TryFrom<&str> for Action {
-    type Error = StreamDeckError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "sh.viora.controller-for-sonos.play-pause" => Ok(Action::PlayPause),
-            _ => Err(StreamDeckError::UnknownAction),
-        }
+    pub(crate) fn serialize<S>(value: &str, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut payload = ser.serialize_struct("payload", 1)?;
+        payload.serialize_field("message", value)?;
+        payload.end()
     }
 }

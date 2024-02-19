@@ -1,4 +1,5 @@
 use log::error;
+use serde::de::DeserializeOwned;
 use tokio::sync::mpsc;
 
 use super::{error::StreamDeckError, ReceiveEvent, SendEvent};
@@ -7,11 +8,11 @@ pub struct Connection {
     chan: mpsc::Sender<SendEvent>,
 }
 
-pub trait Handler {
+pub trait Handler<Actions> {
     async fn handle(
         &self,
         connection: &Connection,
-        event: &ReceiveEvent,
+        event: &ReceiveEvent<Actions>,
     ) -> Result<(), StreamDeckError>;
 }
 
@@ -32,27 +33,23 @@ impl Connection {
         .unwrap();
     }
 
-    pub async fn handle<H: Handler>(
+    pub async fn handle<'a, Actions: DeserializeOwned>(
         &self,
-        event: &ReceiveEvent,
-        handler: &H,
+        event: &ReceiveEvent<Actions>,
+        handler: &impl Handler<Actions>,
     ) -> Result<(), StreamDeckError> {
         handler.handle(self, event).await
     }
 
-    pub async fn ingest<H: Handler>(
+    pub async fn ingest<'a, Actions: DeserializeOwned>(
         &self,
-        incoming: &mut mpsc::Receiver<ReceiveEvent>,
-        handler: H,
+        incoming: &mut mpsc::Receiver<ReceiveEvent<Actions>>,
+        handler: impl Handler<Actions>,
     ) {
         while let Some(event) = incoming.recv().await {
             let res = self.handle(&event, &handler).await;
             if let Err(e) = res {
-                error!(
-                    "error handling event {:?}: {:?}",
-                    std::any::Any::type_id(&event),
-                    e
-                )
+                error!("error handling event: {:?}", e)
             }
         }
     }

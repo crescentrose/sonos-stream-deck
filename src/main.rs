@@ -1,6 +1,7 @@
 use crate::stream_deck::error::StreamDeckError;
-use crate::stream_deck::{Action, ReceiveEvent};
+use crate::stream_deck::ReceiveEvent;
 use log::{debug, info, warn};
+use serde::Deserialize;
 use sonos::Zone;
 use std::{env, time::Duration};
 use stream_deck::handler::{Connection, Handler};
@@ -12,15 +13,21 @@ struct SonosHandler {
     zone: Option<Zone>,
 }
 
-impl Handler for SonosHandler {
+// TODO: Extract
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub enum Action {
+    PlayPause,
+}
+
+impl Handler<Action> for SonosHandler {
     async fn handle(
         &self,
         _connection: &Connection,
-        event: &ReceiveEvent,
+        event: &ReceiveEvent<Action>,
     ) -> Result<(), StreamDeckError> {
         match event {
-            ReceiveEvent::KeyDown { .. } => Ok(()),
             ReceiveEvent::KeyUp { action, .. } => self.action(action).await,
+            _ => Ok(()),
         }
     }
 }
