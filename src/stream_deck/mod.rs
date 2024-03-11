@@ -2,96 +2,159 @@ pub mod error;
 pub mod handler;
 pub mod plumbing;
 
-use serde_json::{json, Value};
+use log::debug;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio_tungstenite::tungstenite::Message;
 
 use self::error::StreamDeckError;
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "event", rename_all = "camelCase")]
 pub enum SendEvent {
-    Register { uuid: String },
-    Log { message: String },
+    #[serde(alias = "register")]
+    RegisterPlugin { uuid: String },
+    #[serde(alias = "logMessage")]
+    Log {
+        #[serde(flatten)]
+        payload: payload::Log,
+    },
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum ReceiveEvent {
-    KeyDown { action: Action, context: String },
-    KeyUp { action: Action, context: String },
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "event", rename_all = "camelCase")]
+pub enum ReceiveEvent<Action> {
+    DidReceiveSettings {
+        action: Action,
+        context: String,
+        device: String,
+        payload: Value,
+    },
+    DidReceiveGlobalSettings {
+        payload: Value,
+    },
+    DidReceiveDeepLink {
+        payload: Value,
+    },
+    KeyDown {
+        action: Action,
+        context: String,
+        payload: payload::KeyPress,
+    },
+    KeyUp {
+        action: Action,
+        context: String,
+        payload: payload::KeyPress,
+    },
+    WillAppear {
+        action: Action,
+        context: String,
+        device: String,
+        payload: payload::Presence,
+    },
+    WillDisappear {
+        action: Action,
+        context: String,
+        device: String,
+        payload: payload::Presence,
+    },
+    DeviceDidConnect {
+        device: String,
+    },
+    DeviceDidDisconnect {
+        device: String,
+    },
+    PropertyInspectorDidAppear,
+    PropertyInspectorDidDisappear,
+    SystemDidWakeUp,
+    SendToPlugin {
+        action: Action,
+        context: String,
+        payload: Value,
+    },
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Action {
-    PlayPause,
-}
+impl TryFrom<SendEvent> for Message {
+    type Error = StreamDeckError;
 
-impl From<SendEvent> for Message {
-    fn from(value: SendEvent) -> Self {
-        let msg = match value {
-            SendEvent::Register { ref uuid } => json!({"event": "registerPlugin", "uuid": uuid}),
-            SendEvent::Log { ref message } => {
-                json!({"event": "logMessage", "payload": {"message": message}})
-            }
-        }
-        .to_string();
+    fn try_from(value: SendEvent) -> Result<Self, Self::Error> {
+        let msg = serde_json::to_string(&value).unwrap();
 
         if value.is_binary() {
-            Message::Binary(msg.into_bytes())
+            debug!("sending bytes: {msg}");
+            Ok(Message::Binary(msg.into_bytes()))
         } else {
-            Message::Text(msg)
+            debug!("sending json: {msg}");
+            Ok(Message::Text(msg))
         }
     }
 }
 
 impl SendEvent {
     pub fn is_binary(&self) -> bool {
-        matches!(self, SendEvent::Register { uuid: _ })
+        matches!(self, SendEvent::RegisterPlugin { uuid: _ })
     }
 }
 
-impl ReceiveEvent {
-    pub fn from_message(event: &str) -> Result<ReceiveEvent, StreamDeckError> {
-        use ReceiveEvent::*;
-        use StreamDeckError::*;
+mod payload {
+    use serde::{Deserialize, Serialize};
+    use serde_json::Value;
 
-        let event: Value = serde_json::from_str(event)?;
-        let event_type = event.try_get("event")?;
+    #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Coordinates {
+        pub column: i32,
+        pub row: i32,
+    }
 
-        match event_type {
-            "keyDown" => Ok(KeyDown {
-                action: Action::try_from(event.try_get("action")?)?,
-                context: event.try_get("context")?.to_string(),
-            }),
-            "keyUp" => Ok(KeyUp {
-                action: Action::try_from(event.try_get("action")?)?,
-                context: event.try_get("context")?.to_string(),
-            }),
-            _ => Err(UnrecognizedEvent),
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct Log {
+        pub message: String,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct KeyPress {
+        pub settings: Value,
+        pub coordinates: Coordinates,
+        pub state: Option<i32>,
+        pub user_desired_state: Option<i32>,
+        pub is_in_multi_action: bool,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Presence {
+        pub settings: Value,
+        pub coordinates: Coordinates,
+        pub controller: String,
+        pub state: Option<i32>,
+        pub is_in_multi_action: bool,
+    }
+}
+
+macro_rules! action_names {
+    ($actions:ident => { $($name:expr => $variant:expr) , + }) => {
+        use serde::{de, Deserialize};
+
+        impl<'de> Deserialize<'de> for $actions {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                match String::deserialize(deserializer)?.as_str() {
+                    $(
+                        $name => Ok($variant),
+                    )+
+                    val => Err(de::Error::invalid_value(
+                        de::Unexpected::Str(val),
+                        &"a valid action",
+                    )),
+                }
+            }
         }
-    }
-}
-
-trait TryGet {
-    fn try_get(&self, key: &str) -> Result<&str, StreamDeckError>;
-}
-
-impl TryGet for Value {
-    fn try_get(&self, key: &str) -> Result<&str, StreamDeckError> {
-        self.get(key)
-            .ok_or(StreamDeckError::MissingData)?
-            .as_str()
-            .ok_or(StreamDeckError::MissingData)
-    }
-}
-
-impl TryFrom<&str> for Action {
-    type Error = StreamDeckError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "sh.viora.controller-for-sonos.play-pause" => Ok(Action::PlayPause),
-            _ => Err(StreamDeckError::UnknownAction),
-        }
-    }
+    };
 }

@@ -1,0 +1,45 @@
+[tasks.build]
+command = "cargo"
+args = ["build"]
+
+[tasks.symlink]
+dependencies = ["symlink-plugin", "symlink-build"]
+
+[tasks.symlink-plugin]
+condition = { platforms = ["mac"], files_not_exist = ["${HOME}/Library/Application Support/com.elgato.StreamDeck/Plugins/sh.viora.controller-for-sonos.sdPlugin"] }
+script_runner = "@shell"
+script = '''
+    ln -s "$(pwd)/sh.viora.controller-for-sonos.sdPlugin" "$HOME/Library/Application Support/com.elgato.StreamDeck/Plugins/sh.viora.controller-for-sonos.sdPlugin"
+'''
+
+[tasks.symlink-build]
+dependencies = ["build"]
+condition = { platforms = ["mac"], files_not_exist = ["${HOME}/Library/Application Support/com.elgato.StreamDeck/Plugins/sh.viora.controller-for-sonos.sdPlugin/bin/sonos-controller"] }
+script = '''
+    ln -s "$(pwd)/target/debug/sonos-controller" "$(pwd)/sh.viora.controller-for-sonos.sdPlugin/bin/sonos-controller"
+'''
+
+[tasks.restart-sd]
+dependencies = ["build"]
+condition = { platforms = ["mac"] }
+script_runner = "@shell"
+script = '''
+    osascript -e 'tell application "Stream Deck" to quit' || true
+    open -j "/Applications/Elgato Stream Deck.app"
+'''
+
+[tasks.kill-plugin]
+dependencies = ["build"]
+script_runner = "@shell"
+script = '''
+    kill $(tac ./sh.viora.controller-for-sonos.sdPlugin/logs/sonos-controller.log | grep -m1 pid | sed -e "s/.*pid: //")
+'''
+
+[tasks.logs]
+condition = { platforms = ["mac"] }
+script_runner = "@shell"
+script = '''
+    tail -f $HOME/Library/Logs/ElgatoStreamDeck/StreamDeck0.log \
+            $HOME/Library/Logs/ElgatoStreamDeck/sh.viora.controller-for-sonos0.log \
+            $(pwd)/sh.viora.controller-for-sonos.sdPlugin/logs/sonos-controller.log
+'''

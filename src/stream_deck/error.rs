@@ -17,4 +17,6 @@ pub enum StreamDeckError {
     UnknownAction,
     #[error("handler failed: {}", .0)]
     HandlerFailed(String),
+    #[error("error reading from websockets")]
+    ReadError(#[from] tokio_tungstenite::tungstenite::Error),
 }
