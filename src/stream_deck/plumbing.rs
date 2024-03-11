@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use futures::{SinkExt, StreamExt};
-use log::{debug, error};
+use log::{debug, error, info};
 use serde::de::DeserializeOwned;
 use tokio::sync::mpsc;
 use tokio_tungstenite::connect_async;
@@ -42,13 +42,22 @@ pub async fn run<H: Handler<Actions>, Actions: DeserializeOwned + Debug>(
             let msg = message
                 .map(|m| m.into_data())
                 .map_err(StreamDeckError::ReadError)
-                .and_then(|e| serde_json::from_slice(&e).map_err(StreamDeckError::MalformedJson));
+                .and_then(|e| Ok(String::from_utf8(e).unwrap()));
 
-            debug!("received message: {:?}", msg);
-            match msg {
-                Ok(event) => recv_tx.send(event).await.unwrap(),
-                Err(e) => error!("error receiving event: {:?}", e),
-            };
+            if let Ok(json) = msg {
+                if json.parse::<i64>().is_ok() {
+                    // sometimes we just get numbers from the stream deck, we ignore those
+                    return;
+                }
+                debug!("received json: {:?}", json);
+                let event = serde_json::from_str(&json).map_err(StreamDeckError::MalformedJson);
+                info!("dispatching event: {:?}", event);
+
+                match event {
+                    Ok(event) => recv_tx.send(event).await.unwrap(),
+                    Err(e) => error!("error processing event: {:?}", e),
+                };
+            }
         })
     };
 

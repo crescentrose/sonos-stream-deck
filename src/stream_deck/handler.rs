@@ -1,8 +1,9 @@
-use log::error;
+use log::{error, info};
 use serde::de::DeserializeOwned;
+use std::fmt::Debug;
 use tokio::sync::mpsc;
 
-use super::{error::StreamDeckError, ReceiveEvent, SendEvent};
+use super::{error::StreamDeckError, payload, ReceiveEvent, SendEvent};
 
 pub struct Connection {
     chan: mpsc::Sender<SendEvent>,
@@ -18,6 +19,7 @@ pub trait Handler<Actions> {
 
 impl Connection {
     pub async fn send(&self, event: SendEvent) -> Result<(), StreamDeckError> {
+        info!("sending event: {event:?}");
         self.chan
             .send(event)
             .await
@@ -27,21 +29,27 @@ impl Connection {
     // Panics on purpose (if we can't log something has gone horribly wrong.)
     pub async fn log(&self, msg: &str) {
         self.send(SendEvent::Log {
-            message: String::from(msg),
+            payload: payload::Log {
+                message: msg.to_string(),
+            },
         })
         .await
         .unwrap();
     }
 
-    pub async fn handle<'a, Actions: DeserializeOwned>(
+    pub async fn handle<'a, Actions>(
         &self,
         event: &ReceiveEvent<Actions>,
         handler: &impl Handler<Actions>,
-    ) -> Result<(), StreamDeckError> {
+    ) -> Result<(), StreamDeckError>
+    where
+        Actions: DeserializeOwned + Debug,
+    {
+        info!("handling {event:?}");
         handler.handle(self, event).await
     }
 
-    pub async fn ingest<'a, Actions: DeserializeOwned>(
+    pub async fn ingest<'a, Actions: DeserializeOwned + Debug>(
         &self,
         incoming: &mut mpsc::Receiver<ReceiveEvent<Actions>>,
         handler: impl Handler<Actions>,
@@ -58,7 +66,7 @@ impl Connection {
 pub async fn initialize(chan: mpsc::Sender<SendEvent>, uuid: &str) -> Connection {
     let connection = Connection { chan };
     connection
-        .send(SendEvent::Register {
+        .send(SendEvent::RegisterPlugin {
             uuid: uuid.to_string(),
         })
         .await

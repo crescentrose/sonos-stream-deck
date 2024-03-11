@@ -1,12 +1,12 @@
 use crate::stream_deck::error::StreamDeckError;
 use crate::stream_deck::ReceiveEvent;
 use log::{debug, info, warn};
-use serde::Deserialize;
 use sonos::Zone;
 use std::{env, time::Duration};
 use stream_deck::handler::{Connection, Handler};
 
 pub mod sonos;
+#[macro_use]
 pub(crate) mod stream_deck;
 
 struct SonosHandler {
@@ -14,10 +14,14 @@ struct SonosHandler {
 }
 
 // TODO: Extract
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub enum Action {
     PlayPause,
 }
+
+action_names!(Action => {
+    "sh.viora.controller-for-sonos.play-pause" => Action::PlayPause
+});
 
 impl Handler<Action> for SonosHandler {
     async fn handle(

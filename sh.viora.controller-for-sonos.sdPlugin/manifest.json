@@ -26,12 +26,12 @@
 	"Icon": "imgs/plugin/marketplace",
 	"SDKVersion": 2,
 	"Software": {
-		"MinimumVersion": "4.4.1"
+		"MinimumVersion": "6.4"
 	},
 	"OS": [
 		{
 			"Platform": "mac",
-			"MinimumVersion": "12"
+			"MinimumVersion": "10.14"
 		}
 	]
 }
